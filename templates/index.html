@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language Recognition</title>
+    <style>
+        .prediction {
+            margin-top: 10px;
+            font-weight: bold;
+            font-weight: 100;
+        }
+        .predicting {
+            margin-top: 50px;
+            font-weight: bold;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 offset-lg-2">
+                <h3 class="mt-5">Live Streaming</h3>
+                <img id="inputImg" width="90%" height="75%">
+            </div>
+        </div>
+    </div>
+    <p id="prediction" class="prediction"></p>
+    <p id="predicting" class="predicting">Predicting...</p>
+    <button onclick="speak()">Speak</button>
+    <script>
+        const inputImg = document.getElementById('inputImg');
+        const prediction = document.getElementById('prediction');
+        const predicting = document.getElementById('predicting');
+
+        function speak() {
+            const utterance = new SpeechSynthesisUtterance(prediction.textContent);
+            const voices = speechSynthesis.getVoices();
+            utterance.voice = voices[0];
+            speechSynthesis.speak(utterance);
+        }
+
+        async function fetchData() {
+            const response = await fetch('/video_feed');
+            const reader = response.body.getReader();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += new TextDecoder().decode(value);
+
+                let parts = buffer.split('--frame');
+                if (parts.length >= 3) {
+                    for (let i = 1; i < parts.length - 1; i += 2) {
+                        let imagePart = parts[i].trim();
+                        let textPart = parts[i + 1].trim();
+
+                        if (!imagePart || !textPart) continue;
+
+                        let imageData = imagePart.split('\r\n\r\n')[1].trim();
+                        inputImg.src = 'data:image/jpeg;base64,' + imageData;
+
+                        let predictedOutput = textPart.split('\r\n\r\n')[1].trim();
+                        if (predictedOutput?.length > 0) {
+                            prediction.textContent = prediction.textContent + predictedOutput;
+                            predicting.style.display = 'none';
+                        }
+                    }
+
+                    buffer = parts.pop();
+                }
+            }
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>
